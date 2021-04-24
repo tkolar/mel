@@ -4,8 +4,6 @@ import datetime
 from bokeh.plotting import figure, show
 import numpy as np
 
-sys.path.append("/Users/tkolar/mel_inventory/data_analysis/RMDataAnalysis")
-
 from rmd_common import rmd_get_items
 from rmd_common import rmd_get_circulation
 

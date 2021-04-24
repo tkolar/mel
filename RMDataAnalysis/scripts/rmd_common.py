@@ -2,7 +2,7 @@ import sys
 import csv
 import datetime
 
-ROOTDIR="/Users/tkolar/mel_inventory/data_analysis/RMDataAnalysis/" 
+ROOTDIR="/Users/tkolar/mel/RMDataAnalysis/" 
 
 #
 # items.csv fields
@@ -39,3 +39,24 @@ def rmd_get_circulation():
         circulation[day][barcode] = row
 
     return(circulation)
+
+#
+# patrons.csv fields
+#
+# Last Name,First Name,Email,Barcode,Type of Membership,
+# Date Added,Date Updated,Membership Expiration Date,Fine Balance
+#
+def rmd_get_patrons():
+    items = {}
+    csvfile = open(ROOTDIR+"patrons.csv", encoding="latin-1")
+    cvsreader = csv.DictReader(csvfile)
+    for row in cvsreader:
+        barcode = row["Barcode"]
+        items[barcode] = row
+
+    return(items)
+
+def rmd_date_from_rmdate(rmdate):
+    mstr, dstr, ystr = rmdate.split("/")
+    day = datetime.date(month=int(mstr), day=int(dstr), year=int(ystr))
+    return(day)

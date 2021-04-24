@@ -4,8 +4,6 @@ import datetime
 from bokeh.plotting import figure, show
 import numpy as np
 
-sys.path.append("/Users/tkolar/mel_inventory/data_analysis/RMDataAnalysis")
-
 from rmd_common import rmd_get_items
 from rmd_common import rmd_get_circulation
 
@@ -38,7 +36,8 @@ def main():
 
     p = figure(x_range=foo, plot_height=500, plot_width=1000,
            title="Number of checkouts",
-           toolbar_location=None, tools="")
+           toolbar_location=None, tools="", x_axis_label="Books",
+           y_axis_label="Times Checked Out")
 
     p.vbar(x=counts, top=totals, width=2)
 
