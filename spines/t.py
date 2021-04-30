@@ -10,7 +10,8 @@ file = open("conn-F.json")
 d = json.load(file)
 file.close()
 
-print(len(d))
+for barcode in d:
+    print(d[barcode])
 sys.exit(0)
 
 #
