@@ -18,8 +18,20 @@ from rmd_common import rmd_get_isbns
 DATA_DIR = "/Users/tkolar/mel/spines/"
 SECTION = "F"
 
+ROTATION_INCREMENT = 5
+LINEAR_INCREMENT = 100
+MAX_SPINE_WIDTH = 1000
+
+WHITE = (255, 255, 255)
+
 items = rmd_get_items()
 isbns = rmd_get_isbns()
+
+def rotate_image(image, angle):
+  image_center = tuple(np.array(image.shape[1::-1]) / 2)
+  rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+  result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR, borderValue=WHITE)
+  return result
 
 #
 # change the perspective so that (hopefully) the sides of the book are parallel
@@ -37,7 +49,6 @@ def transform_image(image):
     return(result)
 
 def histogram_compare(book_image, black_image):
-    print(book_image.shape, black_image.shape)
 
     bgr_planes1 = cv2.split(black_image)
     bgr_planes2 = cv2.split(book_image)
@@ -56,8 +67,8 @@ def histogram_compare(book_image, black_image):
     b_comp = cv2.compareHist(b1_hist, b2_hist, 0) * 100
     g_comp = cv2.compareHist(g1_hist, g2_hist, 0) * 100
     r_comp = cv2.compareHist(r1_hist, r2_hist, 0) * 100
-    print("b:%.2f  g:%.2f  R:%.2f" % (b_comp, g_comp, r_comp))
-    return(0)
+    average = (b_comp + g_comp + r_comp)/3
+    return(average)
 
 
 def estimate_width(barcode):
@@ -81,45 +92,80 @@ def main():
     is_first_sample = True
     first_sample = None
 
-    for barcode in connections:
+    keys = list(connections.keys())
+
+    for barcode in keys:
         width_estimate = estimate_width(barcode)
         image_name = connections[barcode] 
         img_raw = cv2.imread(DATA_DIR + SECTION + "-trimmed" + "/" + image_name, cv2.IMREAD_COLOR)
 
         img = transform_image(img_raw)
 
-        x_offset= 1000
-        x_offset= int(img.shape[1] / 2)
+        x_middle= int(img.shape[1] / 2)
+        x_offset= x_middle + 100
         y_offset=1700
 
-        width = black_img.shape[0]
-        height = black_img.shape[1]
+        black_width = black_img.shape[0]
+        black_height = black_img.shape[1]
+
+        rotated_images = []
+
+        for r in range(-30,30+ROTATION_INCREMENT,ROTATION_INCREMENT):
+            r_img = rotate_image(img.copy(), r)
+            rotated_images.append((r, r_img))
+
+        best_score = -10.0
+        best = (0.0, 0, 0, None) # score, angle, offset from middle, rotated_img
+        scan_zone = range(x_offset, x_offset + int(MAX_SPINE_WIDTH/2), LINEAR_INCREMENT)
+
+        for i in scan_zone:
+            for (angle, rotated_image) in rotated_images:
+                #  
+                # img sample is the same size  as the black bar
+                #
+                img_sample = rotated_image[y_offset:y_offset+black_width, i:i+black_height] 
+                hist_score = histogram_compare(img_sample, black_img)
+
+                #
+                # check for new high score
+                #
+                if hist_score > best_score:
+                    best = (hist_score, angle, i, rotated_image)
+                    best_score = hist_score
+                    print(best_score)
+                    print("best angle:", angle)
+
+                visible_img = rotated_image.copy()
+                visible_img[y_offset:y_offset+black_width, i:i+black_height] = black_img
+                #cv2.imshow("Vertical",visible_img)
+                #c = cv2.waitKey(0)
+                #if c == ord('q'):
+                #    sys.exit(0)
+                #if c == ord('n'):
+                #    break
 
 
-        while(True):
-            img_copy = img.copy()  # don't touch the original
+        (score, angle, x_offset, best_img) = best
+        #best_img[y_offset:y_offset+width, x_offset:x_offset+height] = black_img
+        FRAME_TOP = 800
+        offset_from_middle = x_offset - x_middle
 
-            #  
-            # img sample is the same size  as the black bar
-            #
-            img_sample = img_copy[y_offset:y_offset+width, x_offset:x_offset+height] 
-            histogram_compare(img_sample, black_img)
+        left = x_middle - int(offset_from_middle * .6666)
+        right = x_offset
+        top = FRAME_TOP 
+        bottom = FRAME_TOP + 3000 
 
-            #
-            # Place the black bar on the image
-            #
-            img_copy[y_offset:y_offset+width, x_offset:x_offset+height] = black_img
+        print(angle)
+        best_img = rotate_image(best_img, 0-angle)
+        cv2.rectangle(best_img, (left, top), (right, bottom), WHITE, 12)
 
-            cv2.imshow("Vertical",img_copy)
+        cv2.imshow("Vertical",best_img)
 
-            c = cv2.waitKey(0)
-            if c == ord('q'):
-                sys.exit(0)
-            if c == ord('n'):
-                break
-            if c == ord(' '):
-                x_offset += 20
+        c = cv2.waitKey(0)
+        if c == ord('q'):
+            sys.exit(0)
+        if c == ord('n'):
+            break
 
-        
 main()
 
